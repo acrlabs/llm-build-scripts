@@ -1,0 +1,44 @@
+# Makefile.python - Project-specific Makefile for Python projects
+#
+# Include the common base Makefile
+include common/base.mk
+
+# For most Python projects, you may not need HAS_IMAGE or HAS_K8S.
+# Uncomment the lines below if your project requires these.
+# HAS_IMAGE = 1
+# HAS_K8S = 1
+
+# Project-specific variables
+PROJECT = my_python_app
+PYTHON ?= python3
+PIP ?= pip
+
+_build:
+	@echo ">> [PYTHON] Building project..."
+	# For Python, the build step might package the project or prepare a virtual environment.
+	mkdir -p $(BUILD_DIR)
+	$(PYTHON) setup.py build --build-base $(BUILD_DIR)
+
+_test:
+	@echo ">> [PYTHON] Running tests..."
+	pytest
+
+_lint:
+	@echo ">> [PYTHON] Running linting..."
+	flake8 .
+
+_cover:
+	@echo ">> [PYTHON] Running code coverage..."
+ifeq ($(COVERAGE_MODE),ci)
+	@echo "[PYTHON] Running coverage in CI mode..."
+	pytest --maxfail=1 --disable-warnings -q --cov=$(PROJECT) --cov-report=xml:$(BUILD_DIR)/coverage.xml
+else
+	@echo "[PYTHON] Running coverage locally..."
+	pytest --maxfail=1 --disable-warnings -q --cov=$(PROJECT) --cov-report=term-missing
+endif
+
+.PHONY: release
+release:
+	@echo ">> [PYTHON] Releasing new version..."
+	git cliff -o CHANGELOG.md
+	@echo "Remember to update version information in setup.py (or equivalent)."

@@ -1,0 +1,12 @@
+# Specify artifacts to build
+ARTIFACTS ?= prom2parquet
+
+# Specify language
+LANGUAGE = golang
+
+# Include base makefile
+include build/base.mk
+
+# Override main-build for this project
+main-build:
+	CGO_ENABLED=0 go build -ldflags "-s -w" -trimpath -o $(BUILD_DIR)/prom2parquet ./cmd/.

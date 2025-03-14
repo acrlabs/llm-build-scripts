@@ -1,0 +1,77 @@
+# Makefile.rust - Project-specific Makefile for Rust projects
+#
+# Include the common base
+include common/base.mk
+
+# Uncomment or set these if your project should build a Docker image or deploy to Kubernetes.
+# HAS_IMAGE = 1
+# HAS_K8S = 1
+
+# Project-specific variables
+PROJECT = my_rust_app
+CARGO_BIN ?= cargo
+
+# Allow cross-compilation; if TARGET is set, use it.
+TARGET ?=
+
+# Implement the _build target for Rust.
+_build:
+	@echo ">> [RUST] Building project..."
+	mkdir -p $(BUILD_DIR)
+ifeq ($(TARGET),)
+	$(CARGO_BIN) build --release --target-dir $(BUILD_DIR)
+else
+	$(CARGO_BIN) build --release --target $(TARGET) --target-dir $(BUILD_DIR)
+endif
+
+# Implement the _test target.
+_test:
+	@echo ">> [RUST] Running tests..."
+	$(CARGO_BIN) test
+
+# Implement the _lint target using Clippy.
+_lint:
+	@echo ">> [RUST] Running lint (clippy)..."
+	$(CARGO_BIN) clippy -- -D warnings
+
+# Implement the _cover target.
+_cover:
+	@echo ">> [RUST] Running coverage..."
+ifeq ($(COVERAGE_MODE),ci)
+	@echo "[RUST] Running coverage in CI mode..."
+	# Example: cargo tarpaulin --out Xml --target-dir $(BUILD_DIR)
+else
+	@echo "[RUST] Running coverage locally..."
+	# Example: cargo tarpaulin --out Html --target-dir $(BUILD_DIR)
+endif
+
+# Docker image target – build image if HAS_IMAGE is set.
+ifdef HAS_IMAGE
+_image:
+	@echo ">> [RUST] Building Docker image for Rust binary..."
+	# Example: Build the binary inside a container to match deployment environment.
+	docker build --build-arg TARGET=$(TARGET) -t $(shell ./docker_tag.sh) .
+endif
+
+# Kubernetes targets – if HAS_K8S is set.
+ifdef HAS_K8S
+_k8s:
+	@echo ">> [RUST] Generating Kubernetes manifests..."
+	# For example, use scripts or templating.
+	./scripts/generate_k8s.sh
+
+_run:
+	@echo ">> [RUST] Deploying to Kubernetes..."
+	kubectl apply -f k8s/
+endif
+
+# Additional Rust-specific targets.
+.PHONY: release publish
+release:
+	@echo ">> [RUST] Releasing new version..."
+	git cliff -o CHANGELOG.md
+	@echo "Remember to update Cargo.toml with the new version."
+
+publish: build test lint
+	@echo ">> [RUST] Publishing to Crates.io..."
+	$(CARGO_BIN) publish

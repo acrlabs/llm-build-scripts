@@ -1,0 +1,21 @@
+# Project configuration
+ARTIFACTS = sk-ctrl sk-driver sk-tracer skctl
+DOCKER_BUILD_ARTIFACTS = sk-ctrl sk-driver sk-tracer
+ARTIFACTS_WITH_IMAGES = sk-ctrl sk-driver sk-tracer
+HAS_K8S = 1
+RUST_PROJECT = 1
+
+# Include base functionality
+include build/base.mk
+
+# Custom targets
+pre-image::
+	cp -r examples/metrics "$(BUILD_DIR)/metrics-cfg"
+
+pre-k8s:: crd
+
+crd: $(BUILD_DIR)/skctl
+	$< crd > k8s/raw/simkube.io_simulations.yml
+
+validation_rules: $(BUILD_DIR)/skctl
+	$< validate print --format table > docs/validation-rules.md

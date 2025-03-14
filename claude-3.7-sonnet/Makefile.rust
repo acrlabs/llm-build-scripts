@@ -1,0 +1,81 @@
+# Specify artifacts to build
+ARTIFACTS ?= sk-ctrl sk-driver sk-tracer
+
+# Specify language
+LANGUAGE = rust
+
+# Enable Docker and Kubernetes features
+ENABLE_DOCKER = 1
+ENABLE_K8S = 1
+
+# Rust-specific settings
+RUST_BUILD_IMAGE ?= rust:1.79-bullseye
+
+# Include base makefile
+include build/base.mk
+
+# Override main-build to use Docker
+main-build:
+	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build \
+		-v `pwd`:/build:rw \
+		-v $(BUILD_DIR):/build/.build:rw \
+		$(RUST_BUILD_IMAGE) make build-docker
+
+# Custom build in Docker
+.PHONY: build-docker
+build-docker:
+	cargo version
+	$(CARGO_HOME_ENV) cargo build --target-dir=$(BUILD_DIR) $(addprefix -p=,$(ARTIFACTS)) --color=always
+	cp $(addprefix $(BUILD_DIR)/debug/,$(ARTIFACTS)) $(BUILD_DIR)/.
+
+# Add extra artifacts after main build
+post-build:
+	make skctl
+
+# Custom target for skctl (built locally, not in Docker)
+.PHONY: skctl
+skctl:
+	cargo version
+	cargo build --target-dir=$(BUILD_DIR) -p=skctl --color=always
+	cp $(BUILD_DIR)/debug/skctl $(BUILD_DIR)/.
+
+# Override pre-image target to add metrics config
+pre-image:
+	cp -r examples/metrics $(BUILD_DIR)/metrics-cfg
+
+# CRD generation
+.PHONY: crd
+crd: skctl
+	$(BUILD_DIR)/skctl crd > k8s/raw/simkube.io_simulations.yml
+
+# Override pre-k8s to include CRD generation
+pre-k8s:: crd
+
+# Validation rules generation
+.PHONY: validation_rules
+validation_rules: VALIDATION_FILE=sk-cli/src/validation/rules/README.md
+validation_rules: skctl
+	printf "# SimKube Trace Validation Checks\n\n" > $(VALIDATION_FILE)
+	$(BUILD_DIR)/skctl validate print --format table >> $(VALIDATION_FILE)
+	printf "\nThis file is auto-generated; to rebuild, run \`make $@\`.\n" >> $(VALIDATION_FILE)
+
+# API generation
+.PHONY: api
+api:
+	openapi-generator generate -i sk-api/schema/v1/simkube.yml -g rust --global-property models -o generated-api
+	cp generated-api/src/models/export_filters.rs sk-api/src/v1/.
+	cp generated-api/src/models/export_request.rs sk-api/src/v1/.
+	@echo ''
+	@echo '----------------------------------------------------------------------'
+	@echo 'WARNING: YOU NEED TO DO MANUAL CLEANUP TO THE OPENAPI GENERATED FILES!'
+	@echo '----------------------------------------------------------------------'
+	@echo 'At a minimum:'
+	@echo '   In sk-api/src/v1/*, add "use super::*", and replace all the'
+	@echo '   k8s-generated types with the correct imports from k8s-openapi'
+	@echo '----------------------------------------------------------------------'
+	@echo 'CHECK THE DIFF CAREFULLY!!!'
+	@echo '----------------------------------------------------------------------'
+
+# Override main-publish to use cargo-workspaces
+main-publish:
+	cargo ws publish --publish-as-is

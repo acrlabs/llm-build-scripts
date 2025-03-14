@@ -1,0 +1,3 @@
+PYTHON_PROJECT = 1
+
+include build/base.mk

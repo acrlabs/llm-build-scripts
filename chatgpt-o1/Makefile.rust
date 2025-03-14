@@ -1,0 +1,29 @@
+#######################################
+# Makefile.rust
+#
+# Example Rust project Makefile that uses the new base scripts.
+#######################################
+
+# Include the common logic first
+include common.mk
+
+# Enable Docker if this project should build Docker images.
+# (Optional: remove if you don't need it)
+DOCKER_ENABLED = 1
+DOCKER_IMAGE_NAME = my-rust-app
+
+# Optionally enable Kubernetes if needed
+# K8S_ENABLED = 1
+
+# Now include the Rust-specific rules
+include rust.mk
+
+# Example: define additional crate(s) or override variables
+# RUST_CRATES = my-app
+
+# Optionally extend or override targets:
+# build: rust-build
+#     echo "[PROJECT] Doing an extra step..."
+
+# That’s it! The meta-targets default, verify, etc. come from common.mk
+# Rust build/test/lint/cover/release come from rust.mk

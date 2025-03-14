@@ -1,0 +1,29 @@
+include rust.mk
+include docker.mk
+include k8s.mk
+
+ARTIFACTS ?= sk-ctrl sk-driver sk-tracer
+RUST_COVER_TYPE ?= lcov
+DOCKER_REGISTRY ?= localhost:5000
+PROJECT_NAME ?= sk
+IMAGE_TAG ?= $(shell docker_tag.sh)
+
+build: $(BUILD_DIR)
+	@echo "Building Rust binary..."
+	cargo build --target-dir=$(BUILD_DIR) $(addprefix -p=,$(ARTIFACTS)) --color=always
+
+image: $(BUILD_DIR)
+	@echo "Building Docker image..."
+	$(eval IMAGE_NAME := $(DOCKER_REGISTRY)/$(PROJECT_NAME):$(IMAGE_TAG))
+	docker build $(BUILD_DIR) -f Dockerfile -t $(IMAGE_NAME)
+	docker push $(IMAGE_NAME)
+	printf "$(IMAGE_NAME)" > $(BUILD_DIR)/image-name
+
+k8s: $(BUILD_DIR)
+	@echo "Generating Kubernetes manifests..."
+	$(eval K8S_MANIFESTS_DIR := $(BUILD_DIR)/manifests)
+	mkdir -p $(K8S_MANIFESTS_DIR)
+	cp -r k8s/raw $(K8S_MANIFESTS_DIR) || true
+	if [ -f "k8s/pyproject.toml" ]; then \
+	  	cd k8s && JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION=1 CDK8S_OUTDIR=$(K8S_MANIFESTS_DIR) BUILD_DIR=$(BUILD_DIR) poetry run ./main.py; \
+	fi

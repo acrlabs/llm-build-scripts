@@ -1,0 +1,8 @@
+# Specify language
+LANGUAGE = python
+
+# Include base makefile
+include build/base.mk
+
+# For this simple Python project, we don't need to override any targets
+# The default implementation in python.mk will handle everything

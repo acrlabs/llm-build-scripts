@@ -1,0 +1,5 @@
+ARTIFACTS = prom2parquet
+ARTIFACTS_WITH_IMAGES = prom2parquet
+GO_PROJECT = 1
+
+include build/base.mk

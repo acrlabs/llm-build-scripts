@@ -1,0 +1,48 @@
+I have a set of Makefiles that I maintain for various projects.  There is some common functionality that is contained
+within a git repository that is imported in a submodule in these projects, and then some project-specific functionality
+that is contained within each project's Makefile.  I want you to refactor these Makefiles to be more extensible,
+composable, and maintainable, subject to the following requirements:
+
+1.  Every project should support four basic targets: `build`, `test`, `lint`, `cover`; there should be two "meta"
+    targets, the default target (which just builds) and a `verify` target which runs tests, does linting, and computes
+    code coverage metrics.
+2.  Some projects should create Docker images containing the resulting build artifacts (one image per artifact); these
+    projects should support an `image` target; if this target is present, it should be added to the `default` meta
+    target.  You may assume that there is a `docker_tag.sh` bash script that computes the correct tag for these images.
+3.  Some projects are designed to be deployed on Kubernetes; these projects should support a `k8s` target to generate
+    Kubernetes manifests, and a `run` target to deploy the app to Kubernetes.  This should reference the Docker image
+    built by the `image` target.  If this target is present, it should be added to the `default` meta target.
+4.  Targets should be extensible in each project; this includes specifying both additional commands to run for the
+    target as well as additional dependencies or prerequisites.
+5.  It should be possible to generate multiple build artifacts in each project, including different Docker images for
+    each build artifact if needed.  It should also be possible to specify which build artifacts belong in a Docker image
+    and which ones do not.
+6.  It should be possible to _build_ a binary in a Docker container; this build container must match the container the
+    artifact is deployed in, for example if the artifact is a dynamically-linked library.
+7.  I have projects in three different languages, Rust, Golang, and Python.  There should be commands for each of these
+    languages in my generic build scripts that provide the needed functionality.
+8.  For each language there should be an additional `release` target that uses `git cliff` to generate a CHANGELOG and
+    bump the project version in the appropriate metadata files.
+9.  For Rust projects, there should be additional targets for publishing a new version to Crates.io.
+10. For Rust and Golang projects, it should be possible to cross-compile by specifying a target architecture (e.g.,
+    building an x86 binary on Apple silicon).
+11. For Rust and Golang projects, if the artifact is built inside a container, any cached build artifacts should be made
+    available inside that container.
+12. For Rust projects, the different make targets should not cause a rebuild of the entire dependency chain; for
+    example, if I execute `make test` followed by `make build` followed by `make test`, it should not re-compile the
+    test binaries if there have been no code changes.
+13. All of the build artifacts and other generated intermediate steps should be self-contained in a `.build`
+    subdirectory; there should be a `make clean` target which simply removes this directory.
+14. If functionality is not needed for a project, there should not include targets for that functionality (e.g., if I
+    have a code library instead of a Kubernetes application, the `image`, `k8s` and `run` targets for that project
+    should not exist).
+15. These targets will be executed both locally and in a CI pipeline like GitHub actions.  There should should be a way
+    to customize the behaviour of certain targets depending on the environment (for example, `make cover` should print
+    a human-readable code coverage report when executed locally, but produce a file that can be consumed by CodeCov
+    when exectued in my CI pipeline).
+
+I am attaching 4 files which show my current build system; the first, `base.mk` is the base file included in every
+project.  `Makefile.rust`, `Makefile.golang`, and `Makefile.python` show project-specific examples for each of the three
+languages.  Please generate a new, more extensible and maintainable set of common base Makefiles, as well as adapting
+the attached project-specific Makefiles to use the new base code.  Please use good coding style and provide comments or
+documentation for how to use the resulting tooling.  You may assume that GNU Make extensions are available.

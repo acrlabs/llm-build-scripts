@@ -1,0 +1,66 @@
+# Makefile.golang - Project-specific Makefile for Golang projects
+#
+# Include the common base Makefile
+include common/base.mk
+
+# Uncomment these if your project needs Docker images or Kubernetes deployment.
+# HAS_IMAGE = 1
+# HAS_K8S = 1
+
+# Project-specific variables
+PROJECT = my_golang_app
+GO ?= go
+
+# Allow cross-compilation via TARGET_OS and TARGET_ARCH variables.
+TARGET_OS ?=
+TARGET_ARCH ?=
+
+_build:
+	@echo ">> [GOLANG] Building project..."
+	mkdir -p $(BUILD_DIR)
+ifneq ($(TARGET_OS),)
+	@echo ">> [GOLANG] Cross-compiling for $(TARGET_OS)/$(TARGET_ARCH)..."
+	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) $(GO) build -o $(BUILD_DIR)/$(PROJECT)
+else
+	$(GO) build -o $(BUILD_DIR)/$(PROJECT)
+endif
+
+_test:
+	@echo ">> [GOLANG] Running tests..."
+	$(GO) test ./...
+
+_lint:
+	@echo ">> [GOLANG] Running golint..."
+	golint ./...
+
+_cover:
+	@echo ">> [GOLANG] Running code coverage..."
+ifneq ($(COVERAGE_MODE),ci)
+	@echo "[GOLANG] Running coverage locally..."
+	$(GO) test -coverprofile=$(BUILD_DIR)/coverage.out ./... && go tool cover -html=$(BUILD_DIR)/coverage.out
+else
+	@echo "[GOLANG] Running coverage in CI mode..."
+	$(GO) test -coverprofile=$(BUILD_DIR)/coverage.out ./...
+endif
+
+ifdef HAS_IMAGE
+_image:
+	@echo ">> [GOLANG] Building Docker image for Go binary..."
+	docker build --build-arg TARGET_OS=$(TARGET_OS) --build-arg TARGET_ARCH=$(TARGET_ARCH) -t $(shell ./docker_tag.sh) .
+endif
+
+ifdef HAS_K8S
+_k8s:
+	@echo ">> [GOLANG] Generating Kubernetes manifests..."
+	./scripts/generate_k8s.sh
+
+_run:
+	@echo ">> [GOLANG] Deploying to Kubernetes..."
+	kubectl apply -f k8s/
+endif
+
+.PHONY: release
+release:
+	@echo ">> [GOLANG] Releasing new version..."
+	git cliff -o CHANGELOG.md
+	@echo "Remember to update go.mod with the new version."

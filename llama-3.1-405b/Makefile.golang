@@ -1,0 +1,6 @@
+include golang.mk
+include docker.mk
+
+ARTIFACT ?= prom2parquet
+GO_COVER_FILE ?= $(BUILD_DIR)/go-coverage.txt
+DOCKER_REGISTRY ?= localhost:5000
